@@ -80,6 +80,7 @@ public class FirehoseProducer {
                     try {
                         if (msgQueue.isEmpty() == false) {
                             String msg = msgQueue.take();
+
                             logger.log(msg);
                             PutRecordRequest transformedTweet = twitterTransformLoad.TransformTweet(msg);
                             twitterTransformLoad.LoadTweet(transformedTweet);

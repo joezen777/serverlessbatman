@@ -3,8 +3,12 @@ package net.gogobanana.stream;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.services.kinesisfirehose.AmazonKinesisFirehose;
 import com.amazonaws.services.kinesisfirehose.model.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import net.gogobanana.common.Logger;
 
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -27,6 +31,7 @@ public class FirehoseProcessor implements TwitterTransformLoad {
     private S3DestinationConfiguration s3DestinationConfiguration;
     private String deliveryStreamArn;
     AmazonKinesisFirehose amazonKinesisFirehose;
+    private final static ObjectMapper JSON = new ObjectMapper();
 
     private AtomicBoolean initialized = new AtomicBoolean();
 
@@ -119,20 +124,44 @@ public class FirehoseProcessor implements TwitterTransformLoad {
 
     }
 
-
-    @Override
-    public PutRecordRequest TransformTweet(String tweet) {
-        return null;
+    public byte[] toJsonAsBytes(String obj) {
+        try {
+            return JSON.writeValueAsBytes(obj);
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     @Override
-    public void LoadTweet(PutRecordRequest transformedTweet) {
+    public Record TransformTweet(String tweet) {
+
+        logger.log("Putting tweet: %s" ,tweet);
+        byte[] bytes = toJsonAsBytes(tweet);
+        // The bytes could be null if there is an issue with the JSON serialization by the Jackson JSON library.
+        if (bytes == null) {
+            logger.error("Could not get JSON bytes for tweet");
+            return null;
+        }
+
+
+        Record putRecord = new Record()
+                .withData(ByteBuffer.wrap(bytes));
+
+        return putRecord;
+    }
+
+    @Override
+    public void LoadTweet(Record transformedTweet) {
         if (!this.initialized.get()){
             createFirehoseStreamIfNotExist();
         }
 
         try {
-            amazonKinesisFirehose.putRecord(transformedTweet);
+            PutRecordRequest putRecordRequest = new PutRecordRequest()
+                    .withRecord(transformedTweet)
+                    .withDeliveryStreamName(firehoseStream);
+
+            amazonKinesisFirehose.putRecord(putRecordRequest);
         } catch (Exception ex){
             logger.error(ex,"Error sending message to amazon kinesis firehose");
         }

@@ -5,10 +5,12 @@ import com.amazonaws.services.kinesisfirehose.AmazonKinesisFirehose;
 import com.amazonaws.services.kinesisfirehose.model.*;
 import net.gogobanana.common.Logger;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
  * Created by josephn on 12/13/2017.
  */
-public class FirehoseProcessor {
+public class FirehoseProcessor implements TwitterTransformLoad {
 
     public String getFirehoseStream() {
         return firehoseStream;
@@ -24,6 +26,9 @@ public class FirehoseProcessor {
     private ElasticsearchDestinationConfiguration elasticsearchDestinationConfiguration;
     private S3DestinationConfiguration s3DestinationConfiguration;
     private String deliveryStreamArn;
+    AmazonKinesisFirehose amazonKinesisFirehose;
+
+    private AtomicBoolean initialized = new AtomicBoolean();
 
     public FirehoseProcessor(String firehoseStream, String region, Logger logger,
                              ElasticsearchDestinationConfiguration elasticsearchDestinationConfiguration,
@@ -33,11 +38,14 @@ public class FirehoseProcessor {
         this.logger = logger;
         this.elasticsearchDestinationConfiguration = elasticsearchDestinationConfiguration;
         this.s3DestinationConfiguration = s3DestinationConfiguration;
+        this.initialized.set(false);
     }
+
+
 
     private void createFirehoseStreamIfNotExist(){
 
-        AmazonKinesisFirehose amazonKinesisFirehose =
+        this.amazonKinesisFirehose =
                 com.amazonaws.services.kinesisfirehose.AmazonKinesisFirehoseClientBuilder.standard()
                         .withRegion(this.region).build();
 
@@ -51,9 +59,12 @@ public class FirehoseProcessor {
                     describeDeliveryStreamResult.getDeliveryStreamDescription().getDeliveryStreamARN() == null) {
                 deliveryStreamExists = false;
             }
-            this.deliveryStreamArn = describeDeliveryStreamResult.getDeliveryStreamDescription().getDeliveryStreamARN();
-            logger.log("Delivery stream %s in region %s already exists with ARN %s",this.firehoseStream,
-                    this.region, this.deliveryStreamArn);
+            else {
+                this.deliveryStreamArn = describeDeliveryStreamResult.getDeliveryStreamDescription().getDeliveryStreamARN();
+                logger.log("Delivery stream %s in region %s already exists with ARN %s", this.firehoseStream,
+                        this.region, this.deliveryStreamArn);
+                this.initialized.set(true);
+            }
         }
         catch (Exception e){
             logger.error(e,"Error describing existing firehost client %s in region %s",this.firehoseStream,this.region);
@@ -96,7 +107,7 @@ public class FirehoseProcessor {
                     }
                 }
 
-
+                this.initialized.set(true);
 
             } catch (Exception e){
                 logger.error(e,"Unable to create stream with configurations %s in region %s",this.firehoseStream,
@@ -109,6 +120,21 @@ public class FirehoseProcessor {
     }
 
 
+    @Override
+    public PutRecordRequest TransformTweet(String tweet) {
+        return null;
+    }
 
+    @Override
+    public void LoadTweet(PutRecordRequest transformedTweet) {
+        if (!this.initialized.get()){
+            createFirehoseStreamIfNotExist();
+        }
 
+        try {
+            amazonKinesisFirehose.putRecord(transformedTweet);
+        } catch (Exception ex){
+            logger.error(ex,"Error sending message to amazon kinesis firehose");
+        }
+    }
 }

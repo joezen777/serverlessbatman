@@ -1,11 +1,13 @@
 package net.gogobanana.stream;
 
+import com.amazonaws.services.kinesisfirehose.model.PutRecordRequest;
+
 /**
  * Created by josephn on 12/13/2017.
  */
 public interface TwitterTransformLoad {
 
-    Object TransformTweet(String tweet);
+    PutRecordRequest TransformTweet(String tweet);
 
-    void LoadTweet(Object transformedTweet);
+    void LoadTweet(PutRecordRequest transformedTweet);
 }

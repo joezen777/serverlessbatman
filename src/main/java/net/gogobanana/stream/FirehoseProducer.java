@@ -1,5 +1,6 @@
 package net.gogobanana.stream;
 
+import com.amazonaws.services.kinesisfirehose.model.PutRecordRequest;
 import com.google.common.collect.Lists;
 import com.twitter.hbc.ClientBuilder;
 import com.twitter.hbc.core.Client;
@@ -22,6 +23,9 @@ import java.util.concurrent.LinkedBlockingQueue;
  * Created by josephn on 12/9/2017.
  */
 public class FirehoseProducer {
+
+    static final String STREAM_NAME = "twitter";
+    static final String REGION = "us-east-1";
 
     public static void main(String[] args) throws Exception {
 
@@ -65,6 +69,9 @@ public class FirehoseProducer {
         Client hosebirdClient = builder.build();
 // Attempts to establish a connection.
         hosebirdClient.connect();
+        final TwitterTransformLoad twitterTransformLoad = new FirehoseProcessor(STREAM_NAME,REGION,logger,
+                FirehoseConfig.getElasticSearchDestinationConfiguration(),
+                FirehoseConfig.getS3DestinationConfiguration());
 
         Thread t = new Thread() { // Create an anonymous inner class extends Thread
             @Override
@@ -74,6 +81,8 @@ public class FirehoseProducer {
                         if (msgQueue.isEmpty() == false) {
                             String msg = msgQueue.take();
                             logger.log(msg);
+                            PutRecordRequest transformedTweet = twitterTransformLoad.TransformTweet(msg);
+                            twitterTransformLoad.LoadTweet(transformedTweet);
                         }
                         else {
                             logger.log("No messages, waiting...");

@@ -1,6 +1,7 @@
 package net.gogobanana.stream;
 
 import com.amazonaws.services.kinesisfirehose.model.PutRecordRequest;
+import com.amazonaws.services.kinesisfirehose.model.Record;
 import com.google.common.collect.Lists;
 import com.twitter.hbc.ClientBuilder;
 import com.twitter.hbc.core.Client;
@@ -82,7 +83,7 @@ public class FirehoseProducer {
                             String msg = msgQueue.take();
 
                             logger.log(msg);
-                            PutRecordRequest transformedTweet = twitterTransformLoad.TransformTweet(msg);
+                            Record transformedTweet = twitterTransformLoad.TransformTweet(msg);
                             twitterTransformLoad.LoadTweet(transformedTweet);
                         }
                         else {

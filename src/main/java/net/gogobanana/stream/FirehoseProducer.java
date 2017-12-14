@@ -51,6 +51,7 @@ public class FirehoseProducer {
                         new Location.Coordinate(4.042969,63.860036)));
         //hosebirdEndpoint.followings(followings);
         //hosebirdEndpoint.trackTerms(terms);
+        hosebirdEndpoint.locations(locations);
 
 
 // These secrets should be read from a config file
